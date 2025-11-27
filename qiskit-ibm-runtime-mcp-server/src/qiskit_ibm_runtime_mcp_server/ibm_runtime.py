@@ -18,6 +18,8 @@ from typing import Any, Dict, Optional
 
 from qiskit_ibm_runtime import QiskitRuntimeService  # type: ignore[import-untyped]
 
+from qiskit_ibm_runtime_mcp_server.utils import with_sync
+
 
 def least_busy(backends):
     """Find the least busy backend from a list of backends."""
@@ -121,6 +123,7 @@ def initialize_service(
         raise
 
 
+@with_sync
 async def setup_ibm_quantum_account(
     token: Optional[str] = None, channel: str = "ibm_quantum_platform"
 ) -> Dict[str, Any]:
@@ -172,6 +175,7 @@ async def setup_ibm_quantum_account(
         return {"status": "error", "message": f"Failed to set up account: {str(e)}"}
 
 
+@with_sync
 async def list_backends() -> Dict[str, Any]:
     """
     List available IBM Quantum backends.
@@ -223,6 +227,7 @@ async def list_backends() -> Dict[str, Any]:
         return {"status": "error", "message": f"Failed to list backends: {str(e)}"}
 
 
+@with_sync
 async def least_busy_backend() -> Dict[str, Any]:
     """
     Find the least busy operational backend.
@@ -264,6 +269,7 @@ async def least_busy_backend() -> Dict[str, Any]:
         }
 
 
+@with_sync
 async def get_backend_properties(backend_name: str) -> Dict[str, Any]:
     """
     Get detailed properties of a specific backend.
@@ -320,6 +326,7 @@ async def get_backend_properties(backend_name: str) -> Dict[str, Any]:
         }
 
 
+@with_sync
 async def list_my_jobs(limit: int = 10) -> Dict[str, Any]:
     """
     List user's recent jobs.
@@ -363,6 +370,7 @@ async def list_my_jobs(limit: int = 10) -> Dict[str, Any]:
         return {"status": "error", "message": f"Failed to list jobs: {str(e)}"}
 
 
+@with_sync
 async def get_job_status(job_id: str) -> Dict[str, Any]:
     """
     Get status of a specific job.
@@ -403,6 +411,7 @@ async def get_job_status(job_id: str) -> Dict[str, Any]:
         return {"status": "error", "message": f"Failed to get job status: {str(e)}"}
 
 
+@with_sync
 async def cancel_job(job_id: str) -> Dict[str, Any]:
     """
     Cancel a specific job.
@@ -435,6 +444,7 @@ async def cancel_job(job_id: str) -> Dict[str, Any]:
         return {"status": "error", "message": f"Failed to cancel job: {str(e)}"}
 
 
+@with_sync
 async def get_service_status() -> str:
     """
     Get current IBM Quantum service status.

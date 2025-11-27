@@ -10,12 +10,90 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
+"""Utility functions for the Qiskit Code Assistant MCP server.
+
+This module provides HTTP client utilities and the `with_sync` decorator for
+creating dual async/sync APIs.
+
+Synchronous Execution
+---------------------
+All async functions decorated with `@with_sync` can be called synchronously
+via the `.sync` attribute:
+
+    from qiskit_code_assistant_mcp_server.qca import qca_list_models
+
+    # Async usage (in async context)
+    result = await qca_list_models()
+
+    # Sync usage (in sync context, Jupyter notebooks, DSPy, etc.)
+    result = qca_list_models.sync()
+
+The sync wrapper handles event loop management automatically, including
+nested event loops in Jupyter notebooks (via nest_asyncio).
+"""
+
+import asyncio
 import json
 import os
+from functools import wraps
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
 import httpx
+
+# Apply nest_asyncio to allow running async code in environments with existing event loops
+try:
+    import nest_asyncio  # type: ignore[import-untyped]
+
+    nest_asyncio.apply()
+except ImportError:
+    pass
+
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+def _run_async(coro):
+    """Helper to run async functions synchronously.
+
+    This handles both cases:
+    - Running in a Jupyter notebook or other environment with an existing event loop
+    - Running in a standard Python script without an event loop
+    """
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # We're in a running loop (e.g., Jupyter), use run_until_complete
+            # This works because nest_asyncio allows nested loops
+            return loop.run_until_complete(coro)
+        else:
+            return loop.run_until_complete(coro)
+    except RuntimeError:
+        # No event loop exists, create one
+        return asyncio.run(coro)
+
+
+def with_sync(func: F) -> F:
+    """Decorator that adds a `.sync` attribute to async functions for synchronous execution.
+
+    Usage:
+        @with_sync
+        async def my_async_function(arg: str) -> Dict[str, Any]:
+            ...
+
+        # Async call
+        result = await my_async_function("hello")
+
+        # Sync call
+        result = my_async_function.sync("hello")
+    """
+
+    @wraps(func)
+    def sync_wrapper(*args, **kwargs):
+        return _run_async(func(*args, **kwargs))
+
+    func.sync = sync_wrapper  # type: ignore[attr-defined]
+    return func
 
 from qiskit_code_assistant_mcp_server.constants import (
     QCA_REQUEST_TIMEOUT,
@@ -103,8 +181,6 @@ async def make_qca_request(
     max_retries: int = 3,
 ) -> Dict[str, Any]:
     """Make an async request to the Qiskit Code Assistant with proper error handling and retry logic."""
-    import asyncio
-
     client = get_http_client()
     last_exception: Optional[
         Union[httpx.TimeoutException, httpx.ConnectError, Exception]

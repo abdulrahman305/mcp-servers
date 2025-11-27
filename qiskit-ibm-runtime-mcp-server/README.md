@@ -124,33 +124,33 @@ print(f"Cancelled job: {cancelled_job}")
 
 #### Sync Usage (DSPy, Scripts, Jupyter)
 
-For frameworks that don't support async operations:
+For frameworks that don't support async operations, all async functions have a `.sync` attribute:
 
 ```python
-from qiskit_ibm_runtime_mcp_server.sync import (
-    setup_ibm_quantum_account_sync,
-    list_backends_sync,
-    least_busy_backend_sync,
-    get_backend_properties_sync,
-    list_my_jobs_sync,
-    get_job_status_sync,
-    cancel_job_sync
+from qiskit_ibm_runtime_mcp_server.ibm_runtime import (
+    setup_ibm_quantum_account,
+    list_backends,
+    least_busy_backend,
+    get_backend_properties,
+    list_my_jobs,
+    get_job_status,
+    cancel_job
 )
 
 # Optional: Setup account if not already configured
 # Will automatically use IBM_QUANTUM_TOKEN env var or saved credentials
-setup_ibm_quantum_account_sync()  # No token needed if already configured
+setup_ibm_quantum_account.sync()  # No token needed if already configured
 
-# Use synchronously without async/await - no setup needed if credentials saved
-backends = list_backends_sync()
+# Use .sync for synchronous execution - no setup needed if credentials saved
+backends = list_backends.sync()
 print(f"Available backends: {backends['total_backends']}")
 
 # Get least busy backend
-backend = least_busy_backend_sync()
+backend = least_busy_backend.sync()
 print(f"Least busy: {backend['backend_name']}")
 
-# Works in Jupyter notebooks and DSPy agents
-jobs = list_my_jobs_sync(limit=5)
+# Works in Jupyter notebooks (handles nested event loops automatically)
+jobs = list_my_jobs.sync(limit=5)
 print(f"Recent jobs: {len(jobs['jobs'])}")
 ```
 
@@ -158,27 +158,25 @@ print(f"Recent jobs: {len(jobs['jobs'])}")
 
 ```python
 import dspy
-import os
 from dotenv import load_dotenv
-from qiskit_ibm_runtime_mcp_server.sync import (
-    setup_ibm_quantum_account_sync,
-    list_backends_sync,
-    least_busy_backend_sync,
-    get_backend_properties_sync
+from qiskit_ibm_runtime_mcp_server.ibm_runtime import (
+    setup_ibm_quantum_account,
+    list_backends,
+    least_busy_backend,
+    get_backend_properties
 )
 
 # Load environment variables (includes IBM_QUANTUM_TOKEN)
 load_dotenv()
 
-# The agent will automatically use saved credentials or environment variables
-# No need to explicitly pass tokens to individual functions
+# Use .sync versions for DSPy tools
 agent = dspy.ReAct(
     YourSignature,
     tools=[
-        setup_ibm_quantum_account_sync,  # Optional - only if you need to verify setup
-        list_backends_sync,
-        least_busy_backend_sync,
-        get_backend_properties_sync
+        setup_ibm_quantum_account.sync,  # Optional - only if you need to verify setup
+        list_backends.sync,
+        least_busy_backend.sync,
+        get_backend_properties.sync
     ]
 )
 
