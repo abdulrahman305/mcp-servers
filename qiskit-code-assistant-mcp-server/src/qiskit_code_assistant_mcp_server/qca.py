@@ -23,7 +23,6 @@ from qiskit_code_assistant_mcp_server.utils import make_qca_request, close_http_
 logger = logging.getLogger(__name__)
 
 
-
 async def qca_list_models() -> Dict[str, Any]:
     """List the available models from the Qiskit Code Assistant."""
     try:
@@ -50,15 +49,15 @@ async def qca_list_models() -> Dict[str, Any]:
 def _select_available_model() -> str:
     """
     Select an available model from the Qiskit Code Assistant service.
-    
+
     This function checks if the configured default model is available.
     If not, it selects the first available model as a fallback.
-    
+
     Returns:
         The model name to use for completions
     """
     import asyncio
-    
+
     try:
         # Run the async qca_list_models function synchronously
         loop = asyncio.new_event_loop()
@@ -69,16 +68,18 @@ def _select_available_model() -> str:
             loop.run_until_complete(close_http_client())
         finally:
             loop.close()
-        
+
         if models_result.get("status") == "success":
             available_models = models_result.get("models", [])
-            model_ids = [model.get("id") for model in available_models if model.get("id")]
-            
+            model_ids = [
+                model.get("id") for model in available_models if model.get("id")
+            ]
+
             # Check if default model is available
             if QCA_TOOL_MODEL_NAME in model_ids:
                 logger.info(f"Default model '{QCA_TOOL_MODEL_NAME}' is available")
                 return QCA_TOOL_MODEL_NAME
-            
+
             # Default model not available, use first available model
             if model_ids:
                 selected_model = model_ids[0]
@@ -88,16 +89,16 @@ def _select_available_model() -> str:
                     f"Available models: {', '.join(model_ids)}"
                 )
                 return selected_model
-            
+
             # No models available
             logger.error("No models available from Qiskit Code Assistant service")
         else:
             error_msg = models_result.get("message", "Unknown error")
             logger.error(f"Failed to fetch available models: {error_msg}")
-    
+
     except Exception as e:
         logger.error(f"Exception while selecting available model: {str(e)}")
-    
+
     # Fallback to configured default if anything goes wrong
     logger.warning(
         f"Unable to verify model availability. Using configured default: {QCA_TOOL_MODEL_NAME}"
