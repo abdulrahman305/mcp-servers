@@ -41,6 +41,11 @@ from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
 import httpx
 
+from qiskit_code_assistant_mcp_server.constants import (
+    QCA_REQUEST_TIMEOUT,
+    QCA_TOOL_X_CALLER,
+)
+
 # Apply nest_asyncio to allow running async code in environments with existing event loops
 try:
     import nest_asyncio  # type: ignore[import-untyped]
@@ -94,12 +99,6 @@ def with_sync(func: F) -> F:
 
     func.sync = sync_wrapper  # type: ignore[attr-defined]
     return func
-
-
-from qiskit_code_assistant_mcp_server.constants import (
-    QCA_REQUEST_TIMEOUT,
-    QCA_TOOL_X_CALLER,
-)
 
 
 def _get_token_from_system():
