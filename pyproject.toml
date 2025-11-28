@@ -56,8 +56,13 @@ packages = ["src/qiskit_mcp_servers"]
 [tool.uv.workspace]
 members = [
     "qiskit-code-assistant-mcp-server",
-    "qiskit-ibm-runtime-mcp-server"
+    "qiskit-ibm-runtime-mcp-server",
 ]
+
+# Source configuration for workspace dependencies
+[tool.uv.sources]
+qiskit-code-assistant-mcp-server = { workspace = true }
+qiskit-ibm-runtime-mcp-server = { workspace = true }
 
 # Shared tool configurations
 [tool.ruff]
