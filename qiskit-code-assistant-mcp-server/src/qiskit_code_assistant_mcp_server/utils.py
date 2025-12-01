@@ -58,6 +58,7 @@ def _get_token() -> str:
         _cached_token = _get_token_from_system()
     return _cached_token
 
+
 # Shared async client for better performance
 _client: httpx.AsyncClient | None = None
 
