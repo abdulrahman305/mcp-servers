@@ -4,7 +4,7 @@ This guide covers how to publish the Qiskit MCP servers to PyPI, both manually a
 
 ## Packages
 
-This repository contains three PyPI packages:
+This repository contains multiple PyPI packages:
 
 1. **qiskit-code-assistant-mcp-server** - MCP server for Qiskit Code Assistant
 2. **qiskit-ibm-runtime-mcp-server** - MCP server for IBM Quantum Runtime
