@@ -15,14 +15,14 @@
 from unittest.mock import patch
 
 from qiskit_ibm_runtime_mcp_server.ibm_runtime import (
-    setup_ibm_quantum_account,
-    list_backends,
-    least_busy_backend,
-    get_backend_properties,
-    list_my_jobs,
-    get_job_status,
     cancel_job,
+    get_backend_properties,
+    get_job_status,
     get_service_status,
+    least_busy_backend,
+    list_backends,
+    list_my_jobs,
+    setup_ibm_quantum_account,
 )
 
 

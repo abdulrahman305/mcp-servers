@@ -35,9 +35,10 @@ nested event loops in Jupyter notebooks (via nest_asyncio).
 import asyncio
 import json
 import os
+from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, TypeVar, Union
+from typing import Any, TypeVar
 
 import httpx
 
@@ -45,6 +46,7 @@ from qiskit_code_assistant_mcp_server.constants import (
     QCA_REQUEST_TIMEOUT,
     QCA_TOOL_X_CALLER,
 )
+
 
 # Apply nest_asyncio to allow running async code in environments with existing event loops
 try:
@@ -101,7 +103,7 @@ def with_sync(func: F) -> F:
     return func
 
 
-def _get_token_from_system():
+def _get_token_from_system() -> str:
     token = os.getenv("QISKIT_IBM_TOKEN")
 
     if not token:
@@ -112,7 +114,7 @@ def _get_token_from_system():
                 "More info about saving your token using QiskitRuntimeService https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/qiskit-runtime-service"
             )
 
-        with open(qiskit_file, "r") as _sc:
+        with open(qiskit_file) as _sc:
             creds = json.loads(_sc.read())
 
         token = creds.get("default-ibm-quantum-platform", {}).get("token")
@@ -125,10 +127,20 @@ def _get_token_from_system():
     return token
 
 
-QISKIT_IBM_TOKEN = _get_token_from_system()
+# Lazy token retrieval - only fetch when first needed
+_cached_token: str | None = None
+
+
+def _get_token() -> str:
+    """Get the IBM Quantum token, using cached value if available."""
+    global _cached_token
+    if _cached_token is None:
+        _cached_token = _get_token_from_system()
+    return _cached_token
+
 
 # Shared async client for better performance
-_client: Optional[httpx.AsyncClient] = None
+_client: httpx.AsyncClient | None = None
 
 
 def get_http_client() -> httpx.AsyncClient:
@@ -138,7 +150,7 @@ def get_http_client() -> httpx.AsyncClient:
         headers = {
             "x-caller": QCA_TOOL_X_CALLER,
             "Accept": "application/json",
-            "Authorization": f"Bearer {QISKIT_IBM_TOKEN}",
+            "Authorization": f"Bearer {_get_token()}",
         }
         _client = httpx.AsyncClient(
             headers=headers,
@@ -148,7 +160,7 @@ def get_http_client() -> httpx.AsyncClient:
     return _client
 
 
-async def close_http_client():
+async def close_http_client() -> None:
     """Close the shared HTTP client."""
     global _client
     if _client is not None and not _client.is_closed:
@@ -176,22 +188,20 @@ def get_error_message(response: httpx.Response) -> str:
 async def make_qca_request(
     url: str,
     method: str,
-    params: Optional[Dict[str, str]] = None,
-    body: Optional[Dict[str, Any]] = None,
+    params: dict[str, str] | None = None,
+    body: dict[str, Any] | None = None,
     max_retries: int = 3,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Make an async request to the Qiskit Code Assistant with proper error handling and retry logic."""
     client = get_http_client()
-    last_exception: Optional[
-        Union[httpx.TimeoutException, httpx.ConnectError, Exception]
-    ] = None
+    last_exception: httpx.TimeoutException | httpx.ConnectError | Exception | None = None
     response = None
 
     for attempt in range(max_retries):
         try:
             response = await client.request(method, url, params=params, json=body)
             response.raise_for_status()
-            return response.json()
+            return dict(response.json())
 
         except httpx.TimeoutException as e:
             last_exception = e
@@ -219,9 +229,7 @@ async def make_qca_request(
     if response is not None:
         return {"error": get_error_message(response)}
     else:
-        return {
-            "error": f"Request failed after {max_retries} attempts: {str(last_exception)}"
-        }
+        return {"error": f"Request failed after {max_retries} attempts: {last_exception!s}"}
 
 
 # Assisted by watsonx Code Assistant

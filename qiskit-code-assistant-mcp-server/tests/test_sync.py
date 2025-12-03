@@ -15,12 +15,12 @@
 from unittest.mock import patch
 
 from qiskit_code_assistant_mcp_server.qca import (
-    qca_list_models,
-    qca_get_model,
-    qca_get_completion,
-    qca_get_rag_completion,
     qca_accept_completion,
+    qca_get_completion,
+    qca_get_model,
+    qca_get_rag_completion,
     qca_get_service_status,
+    qca_list_models,
 )
 
 

@@ -32,8 +32,10 @@ nested event loops in Jupyter notebooks (via nest_asyncio).
 """
 
 import asyncio
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
+
 
 # Apply nest_asyncio to allow running async code in environments with existing event loops
 try:
