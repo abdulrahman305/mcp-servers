@@ -91,7 +91,6 @@ async def get_backend_properties_tool(backend_name: str) -> dict[str, Any]:
         - pending_jobs: Number of jobs in the queue
         - processor_type: Processor family (e.g., 'Eagle r3', 'Heron')
         - backend_version: Backend software version
-        - quantum_volume: Quantum volume metric (higher is better)
         - basis_gates: Native gates supported (e.g., ['cx', 'id', 'rz', 'sx', 'x'])
         - coupling_map: Qubit connectivity as list of [control, target] pairs
         - max_shots: Maximum shots per circuit execution

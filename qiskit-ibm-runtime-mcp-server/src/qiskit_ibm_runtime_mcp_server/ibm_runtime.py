@@ -341,7 +341,6 @@ async def get_backend_properties(backend_name: str) -> dict[str, Any]:
         # Get configuration
         processor_type = None
         backend_version = None
-        quantum_volume = None
         basis_gates: list[str] = []
         coupling_map: list[list[int]] = []
         max_shots = 0
@@ -352,7 +351,6 @@ async def get_backend_properties(backend_name: str) -> dict[str, Any]:
             coupling_map = getattr(config, "coupling_map", []) or []
             max_shots = getattr(config, "max_shots", 0)
             max_experiments = getattr(config, "max_experiments", 0)
-            quantum_volume = getattr(config, "quantum_volume", None)
             backend_version = getattr(config, "backend_version", None)
             processor_type = getattr(config, "processor_type", None)
             # processor_type may be a dict with 'family' and 'revision' keys
@@ -373,7 +371,6 @@ async def get_backend_properties(backend_name: str) -> dict[str, Any]:
             "status_msg": status.status_msg,
             "processor_type": processor_type,
             "backend_version": backend_version,
-            "quantum_volume": quantum_volume,
             "basis_gates": basis_gates,
             "coupling_map": coupling_map,
             "max_shots": max_shots,

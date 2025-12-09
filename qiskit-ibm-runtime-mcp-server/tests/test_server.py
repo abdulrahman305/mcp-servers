@@ -324,7 +324,6 @@ class TestGetBackendProperties:
             mock_config.max_experiments = 300
             mock_config.processor_type = "Heron"
             mock_config.backend_version = "2.0.0"
-            mock_config.quantum_volume = 128
 
             mock_backend = mock_runtime_service.backend.return_value
             mock_backend.configuration.return_value = mock_config
@@ -334,7 +333,6 @@ class TestGetBackendProperties:
             assert result["status"] == "success"
             assert result["processor_type"] == "Heron"
             assert result["backend_version"] == "2.0.0"
-            assert result["quantum_volume"] == 128
 
     @pytest.mark.asyncio
     async def test_get_backend_properties_processor_type_dict(self, mock_runtime_service):
@@ -349,7 +347,6 @@ class TestGetBackendProperties:
             mock_config.max_experiments = 300
             mock_config.processor_type = {"family": "Eagle", "revision": "3"}
             mock_config.backend_version = "1.5.2"
-            mock_config.quantum_volume = 64
 
             mock_backend = mock_runtime_service.backend.return_value
             mock_backend.configuration.return_value = mock_config
@@ -359,7 +356,6 @@ class TestGetBackendProperties:
             assert result["status"] == "success"
             assert result["processor_type"] == "Eagle r3"
             assert result["backend_version"] == "1.5.2"
-            assert result["quantum_volume"] == 64
 
     @pytest.mark.asyncio
     async def test_get_backend_properties_missing_config_attrs(self, mock_runtime_service):
@@ -372,7 +368,7 @@ class TestGetBackendProperties:
             mock_config.basis_gates = ["cx", "id", "rz"]
             mock_config.max_shots = 8192
             mock_config.max_experiments = 300
-            # Don't set processor_type, backend_version, or quantum_volume
+            # Don't set processor_type or backend_version
 
             mock_backend = mock_runtime_service.backend.return_value
             mock_backend.configuration.return_value = mock_config
@@ -383,7 +379,6 @@ class TestGetBackendProperties:
             # Should have the keys but with None values
             assert result["processor_type"] is None
             assert result["backend_version"] is None
-            assert result["quantum_volume"] is None
 
 
 class TestListMyJobs:
