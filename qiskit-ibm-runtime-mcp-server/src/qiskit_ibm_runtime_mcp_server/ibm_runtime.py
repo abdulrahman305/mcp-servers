@@ -24,14 +24,17 @@ from qiskit_ibm_runtime_mcp_server.utils import with_sync
 
 def get_instance_from_env() -> str | None:
     """
-    Get IBM Quantum instance from environment variables.
+    Get IBM Quantum instance from MCP server environment variable.
 
+    This is an MCP server-specific environment variable (not a standard Qiskit SDK variable).
     Setting an instance avoids the slow instance lookup during service initialization.
 
+    The instance should be a Cloud Resource Name (CRN) or service name for IBM Quantum Platform.
+
     Returns:
-        Instance string if found in environment (e.g., "your-instance-name"), None otherwise
+        Instance string if found in environment, None otherwise
     """
-    instance = os.getenv("QISKIT_IBM_INSTANCE")
+    instance = os.getenv("QISKIT_IBM_RUNTIME_MCP_INSTANCE")
     if instance and instance.strip():
         return instance.strip()
     return None
@@ -121,7 +124,7 @@ def initialize_service(
                 else:
                     logger.info(
                         "No instance specified - service will search all instances (slower). "
-                        "Set QISKIT_IBM_INSTANCE for faster startup."
+                        "Set QISKIT_IBM_RUNTIME_MCP_INSTANCE for faster startup."
                     )
                     service = QiskitRuntimeService(channel=channel)
                 logger.info(
@@ -160,7 +163,7 @@ def initialize_service(
                 else:
                     logger.info(
                         "No instance specified - service will search all instances (slower). "
-                        "Set QISKIT_IBM_INSTANCE for faster startup."
+                        "Set QISKIT_IBM_RUNTIME_MCP_INSTANCE for faster startup."
                     )
                     service = QiskitRuntimeService(channel=channel)
                 logger.info(f"Successfully initialized IBM Runtime service on channel: {channel}")
