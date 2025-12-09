@@ -12,6 +12,7 @@
 
 """Core IBM Runtime functions for the MCP server."""
 
+import contextlib
 import logging
 import os
 from typing import Any
@@ -245,7 +246,9 @@ async def list_backends() -> dict[str, Any]:
 
         if skipped_backends:
             result["skipped_backends"] = skipped_backends
-            result["note"] = f"Some backends ({len(skipped_backends)}) were skipped due to API errors"
+            result["note"] = (
+                f"Some backends ({len(skipped_backends)}) were skipped due to API errors"
+            )
 
         return result
 
@@ -372,6 +375,90 @@ async def get_backend_properties(backend_name: str) -> dict[str, Any]:
         }
 
 
+def _get_qubit_calibration_data(
+    properties: Any, qubit: int, faulty_qubits: list[int]
+) -> dict[str, Any]:
+    """Extract calibration data for a single qubit."""
+    qubit_info: dict[str, Any] = {
+        "qubit": qubit,
+        "t1_us": None,
+        "t2_us": None,
+        "frequency_ghz": None,
+        "readout_error": None,
+        "prob_meas0_prep1": None,
+        "prob_meas1_prep0": None,
+        "operational": qubit not in faulty_qubits,
+    }
+
+    # Get T1 time (in microseconds)
+    with contextlib.suppress(Exception):
+        t1 = properties.t1(qubit)
+        if t1 is not None:
+            qubit_info["t1_us"] = round(t1 * 1e6, 2) if t1 < 1 else round(t1, 2)
+
+    # Get T2 time (in microseconds)
+    with contextlib.suppress(Exception):
+        t2 = properties.t2(qubit)
+        if t2 is not None:
+            qubit_info["t2_us"] = round(t2 * 1e6, 2) if t2 < 1 else round(t2, 2)
+
+    # Get qubit frequency (in GHz)
+    with contextlib.suppress(Exception):
+        freq = properties.frequency(qubit)
+        if freq is not None:
+            qubit_info["frequency_ghz"] = round(freq / 1e9, 6)
+
+    # Get readout error
+    with contextlib.suppress(Exception):
+        readout_err = properties.readout_error(qubit)
+        if readout_err is not None:
+            qubit_info["readout_error"] = round(readout_err, 6)
+
+    # Get measurement preparation errors if available
+    with contextlib.suppress(Exception):
+        prob_meas0_prep1 = properties.prob_meas0_prep1(qubit)
+        if prob_meas0_prep1 is not None:
+            qubit_info["prob_meas0_prep1"] = round(prob_meas0_prep1, 6)
+
+    with contextlib.suppress(Exception):
+        prob_meas1_prep0 = properties.prob_meas1_prep0(qubit)
+        if prob_meas1_prep0 is not None:
+            qubit_info["prob_meas1_prep0"] = round(prob_meas1_prep0, 6)
+
+    return qubit_info
+
+
+def _get_gate_errors(
+    properties: Any, qubit_indices: list[int], coupling_map: list[list[int]]
+) -> list[dict[str, Any]]:
+    """Extract gate error data for common gates."""
+    gate_errors: list[dict[str, Any]] = []
+    single_qubit_gates = ["x", "sx", "rz"]
+    two_qubit_gates = ["cx", "ecr", "cz"]
+
+    # Single-qubit gates
+    for gate in single_qubit_gates:
+        for qubit in qubit_indices[:5]:
+            with contextlib.suppress(Exception):
+                error = properties.gate_error(gate, [qubit])
+                if error is not None:
+                    gate_errors.append(
+                        {"gate": gate, "qubits": [qubit], "error": round(error, 6)}
+                    )
+
+    # Two-qubit gates
+    for gate in two_qubit_gates:
+        for edge in coupling_map[:5]:
+            with contextlib.suppress(Exception):
+                error = properties.gate_error(gate, edge)
+                if error is not None:
+                    gate_errors.append(
+                        {"gate": gate, "qubits": edge, "error": round(error, 6)}
+                    )
+
+    return gate_errors
+
+
 @with_sync
 async def get_backend_calibration(
     backend_name: str, qubit_indices: list[int] | None = None
@@ -432,149 +519,43 @@ async def get_backend_calibration(
             }
 
         # Get faulty qubits and gates (important for avoiding failed jobs)
-        faulty_qubits = []
-        faulty_gates = []
-        try:
+        faulty_qubits: list[int] = []
+        faulty_gates: list[dict[str, Any]] = []
+        with contextlib.suppress(Exception):
             faulty_qubits = list(properties.faulty_qubits())
-        except Exception:
-            pass
 
-        try:
-            # faulty_gates returns list of Gate objects, extract relevant info
+        with contextlib.suppress(Exception):
             faulty_gates_raw = properties.faulty_gates()
             for gate in faulty_gates_raw:
-                try:
-                    faulty_gates.append({
-                        "gate": gate.gate,
-                        "qubits": list(gate.qubits),
-                    })
-                except Exception:
-                    pass
-        except Exception:
-            pass
+                with contextlib.suppress(Exception):
+                    faulty_gates.append(
+                        {"gate": gate.gate, "qubits": list(gate.qubits)}
+                    )
 
         # Determine which qubits to report on
         if qubit_indices is None:
-            # Default to first 10 qubits or all if fewer
             qubit_indices = list(range(min(10, num_qubits)))
         else:
-            # Validate provided indices
             qubit_indices = [q for q in qubit_indices if 0 <= q < num_qubits]
 
         # Collect qubit calibration data
-        qubit_data = []
+        qubit_data: list[dict[str, Any]] = []
         for qubit in qubit_indices:
             try:
-                qubit_info = {
-                    "qubit": qubit,
-                    "t1_us": None,
-                    "t2_us": None,
-                    "frequency_ghz": None,
-                    "readout_error": None,
-                    "prob_meas0_prep1": None,
-                    "prob_meas1_prep0": None,
-                    "operational": True,
-                }
-
-                # Check if qubit is faulty
-                qubit_info["operational"] = qubit not in faulty_qubits
-
-                # Get T1 time (in microseconds)
-                try:
-                    t1 = properties.t1(qubit)
-                    if t1 is not None:
-                        # Convert to microseconds if needed (usually already in us)
-                        qubit_info["t1_us"] = round(t1 * 1e6, 2) if t1 < 1 else round(t1, 2)
-                except Exception:
-                    pass
-
-                # Get T2 time (in microseconds)
-                try:
-                    t2 = properties.t2(qubit)
-                    if t2 is not None:
-                        qubit_info["t2_us"] = round(t2 * 1e6, 2) if t2 < 1 else round(t2, 2)
-                except Exception:
-                    pass
-
-                # Get qubit frequency (in GHz)
-                try:
-                    freq = properties.frequency(qubit)
-                    if freq is not None:
-                        # Convert Hz to GHz
-                        qubit_info["frequency_ghz"] = round(freq / 1e9, 6)
-                except Exception:
-                    pass
-
-                # Get readout error
-                try:
-                    readout_err = properties.readout_error(qubit)
-                    if readout_err is not None:
-                        qubit_info["readout_error"] = round(readout_err, 6)
-                except Exception:
-                    pass
-
-                # Get measurement preparation errors if available
-                try:
-                    prob_meas0_prep1 = properties.prob_meas0_prep1(qubit)
-                    if prob_meas0_prep1 is not None:
-                        qubit_info["prob_meas0_prep1"] = round(prob_meas0_prep1, 6)
-                except Exception:
-                    pass
-
-                try:
-                    prob_meas1_prep0 = properties.prob_meas1_prep0(qubit)
-                    if prob_meas1_prep0 is not None:
-                        qubit_info["prob_meas1_prep0"] = round(prob_meas1_prep0, 6)
-                except Exception:
-                    pass
-
-                qubit_data.append(qubit_info)
+                qubit_data.append(
+                    _get_qubit_calibration_data(properties, qubit, faulty_qubits)
+                )
             except Exception as qe:
                 logger.warning(f"Failed to get calibration for qubit {qubit}: {qe}")
                 qubit_data.append({"qubit": qubit, "error": str(qe)})
 
-        # Collect gate error data for common gates
-        gate_errors = []
-        common_gates = ["x", "sx", "rz", "cx", "ecr", "cz"]
-
-        for gate in common_gates:
-            try:
-                # Get gate errors for single-qubit gates on requested qubits
-                if gate in ["x", "sx", "rz"]:
-                    for qubit in qubit_indices[:5]:  # Limit to first 5 qubits
-                        try:
-                            error = properties.gate_error(gate, [qubit])
-                            if error is not None:
-                                gate_errors.append({
-                                    "gate": gate,
-                                    "qubits": [qubit],
-                                    "error": round(error, 6),
-                                })
-                        except Exception:
-                            pass
-                # Get gate errors for two-qubit gates
-                elif gate in ["cx", "ecr", "cz"]:
-                    # Get a few two-qubit gate errors from coupling map
-                    for edge in coupling_map[:5]:  # Limit to first 5 edges
-                        try:
-                            error = properties.gate_error(gate, edge)
-                            if error is not None:
-                                gate_errors.append({
-                                    "gate": gate,
-                                    "qubits": edge,
-                                    "error": round(error, 6),
-                                })
-                        except Exception:
-                            pass
-            except Exception:
-                pass
+        # Collect gate error data
+        gate_errors = _get_gate_errors(properties, qubit_indices, coupling_map)
 
         # Get last calibration time if available
         last_update = None
-        try:
+        with contextlib.suppress(Exception):
             last_update = str(properties.last_update_date)
-        except Exception:
-            pass
 
         return {
             "status": "success",
